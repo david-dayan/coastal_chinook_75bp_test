@@ -2913,6 +2913,27 @@ Most of these markers with many hits in the top 100 pairs (rows) of the primer i
 
 Some other common primer that dimerize with a lot of different primers include Ots_131906-141-FWD, Ots_myoD-364-FWD, Ots28_11077172-REV, Ots_103122-180-FWD and Ots_crRAD12037-39-REV
 
+
+__low reads__
+if a lot of primers are forming dimers, this has two costs (1) wasted reads on primer dimers, (2) low read counts for markers because effective priemr concentration is dropped. Let's look to see if any markers that are high in the primer-interaction results have unusually low on-target reads.
+
+```{r}
+top_50_ints <- primer_ints %>%
+  slice_max(count, n =50) %>%
+  pull(marker1, marker2) %>%
+  unique()
+
+low_50_ont <- counts_351 %>%
+  slice_min(probe_count, n = 50) %>%
+  pull(marker) 
+
+top_50_ints[top_50_ints %in% low_50_ont]
+
+```
+
+Yes, some overlap here. Ignoring Ots_103122-180 (already removing this marker for other reasons) Ots_U5121-34-REV forms 1714484 possible dimer sequences with	Ots_117370-471-FWD and yet	only about 16k reads on target. Ots_131906-141-FWD forms many possible dimers and yet only 30K reads on target. However, there are 1269914 primer hits for this marker. 
+
+
 ### RoSA markers
 
 the primary motivation for this test was to see if the new RoSA markers produced primer-primer interaction leading to wasted sequencing resources. Let's check just these markers.
@@ -3013,27 +3034,30 @@ Because the worst over-amplifiers seem to be suffering from low specificity (str
 #median(counts_351$probe_count)
 
 kable(panel_info %>%
-        left_join(counts_351, by = c("Assay" = "marker")) %>%
-        filter(primer_count > 18e5) %>%
+        left_join(counts_356, by = c("Assay" = "marker")) %>%
+        filter(primer_count > 13e5) %>%
         select(Assay, Concentration, `Panel Origin`, `Presumed Type`, Comment, `Last Action`, primer_count, probe_count, portion_primer_reads))
 
     
 
 ```
 
-It looks like two of these are test markers in the CRITFC OtsGTseqv6.0 test panel, one (Ots_hsp27b-150) is a normal GSI marker with nothing special going on, and three have previously been identified as problem markers by CRITFC but retained because they are important for PBT or GSI. 
+It looks like three of these are test markers in the CRITFC OtsGTseqv6.0 test panel, two (Ots_hsp27b-150 and Ots_u07-53.133) are normal GSI markers with nothing special going on, and three have previously been identified as problem markers by CRITFC but retained because they are important for PBT or GSI. 
 
-Only two can have it's concentration dropped (Ots17_1345774_C6 and Ots17_1488679_C6__). My suggestion is to order the rest as single tubes and exclude them from ordinary runs. Rationale for each is below
+Four can have thir concentration dropped. My suggestion is to order the rest as single tubes and exclude them from ordinary runs. Rationale for each is below
 
 __Change concentration__  
 __Ots17_1345774_C6:__ Half the concentration. Sufficient on-target amplification to allow an ~50% reduction in read depth.   
 __Ots17_1488679_C6__: Quarter the concentration. While this marker does not appear to present sufficient probe counts to permit reducing primer concentration, 82% of samples contain a null allele caused by a single base indel.  Accomodating this indel with a modified probe sequence increased the on target read counts to 556k, or about 5x times the median. 
+__Ots17_1066109_C6__: Quarter the concentration. Sufficient on-target amplification to allow at least 4X reduction in read depth.   
+__Ots_u07-53.133__ 1/4 X concentration (1/8 the current concentration - currently run at 2x concentration), near perfect primer:probe ratio and 16X more on target reads than median. 
 
 __Exclude from ordinary panel, order as tube__  
 __Ots_myoD-364__. Order as single tube, exclude from ordinary runs. Not only is this marker an overamplifier responsible for 2.4% of all reads with a perfect match to any primer sequence. It also readily forms dimers with at least 6 other primers due to the  repeating dimer at the 3' end of the FWD primer and is responsible for up to an additional 2.4% of reads from primer dimers.   
 __Ots_103122-180__ Same as Ots_myoD-364. Not only a read hog, also forms a lot of primer dimers. Also excluding this marker will allow us to add Ots37124-12270118 back to the panel.  
 __Ots_u07-57.120__ The worst read hog, responsible for >8% of detected complete primer sequences in the sequencing data.  This one is a bit complicated. It appears that we can not drop the concentration anymore because probe count is too low, however, a null allele caused by a single SNP in the probe sequences leads to 11% of samples excluded from contributing to the on-target reads for this marker. This is insufficent to improve the probe counts enough to warrant lowering the concentration.   
-__Ots_hsp27b-150__: May want in the future for GSI. Order as single tube.  
+__Ots_hsp27b-150__: May want in the future for GSI. Order as single tube. 
+
 
 
 
